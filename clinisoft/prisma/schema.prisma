@@ -1,0 +1,79 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id       String   @id @default(auto()) @map("_id") @db.ObjectId
+  nombre   String
+  email    String   @unique
+  password String
+  rol      String   // 'paciente', 'doctor' o 'admin'
+
+  // Relaciones
+  doctor          Doctor?
+  citasPaciente   Appointment[] @relation("PacienteCitas")
+  historialMedico MedicalRecord[] @relation("PacienteHistorial")
+  hospitales  Hospital[] @relation("HospitalAdmin") // ← inversa aquí
+}
+
+model Hospital {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  nombre    String
+  direccion String?
+  adminId   String?  @db.ObjectId
+
+  // Relaciones
+  doctores Doctor[]
+  admin    User? @relation("HospitalAdmin", fields: [adminId], references: [id])
+}
+
+model Doctor {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String   @unique @db.ObjectId
+  hospitalId   String   @db.ObjectId
+  especialidad String
+  telefono     String?
+
+  // Relaciones
+  user            User     @relation(fields: [userId], references: [id])
+  hospital        Hospital @relation(fields: [hospitalId], references: [id])
+  citasDoctor     Appointment[] @relation("DoctorCitas")
+  historialDoctor MedicalRecord[] @relation("DoctorHistorial")
+}
+
+model Appointment {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  pacienteId String   @db.ObjectId
+  doctorId   String   @db.ObjectId
+  fecha      DateTime
+  motivo     String? 
+  estado     String   @default("pendiente")
+
+  // Relaciones
+  paciente User?  @relation("PacienteCitas", fields: [pacienteId], references: [id])
+  doctor   Doctor?@relation("DoctorCitas",   fields: [doctorId],   references: [id])
+}
+
+model MedicalRecord {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  pacienteId   String   @db.ObjectId
+  doctorId     String   @db.ObjectId
+  fecha        DateTime @default(now())
+  motivo       String?
+  diagnostico  String?
+  receta       String?
+
+  // Relaciones
+  paciente User   @relation("PacienteHistorial", fields: [pacienteId], references: [id])
+  doctor   Doctor @relation("DoctorHistorial", fields: [doctorId], references: [id])
+}
